@@ -1,0 +1,25 @@
+docker build -t densenet_server -f Dockerfile_densenet .
+
+docker run --gpus all -d -p 9001:8006 --cpus="8.0" --memory="16g" --name densenet_gpu densenet_server
+
+docker run -d -p 9002:8006 --cpus="4.0" --memory="8g" --name densenet_cpu4 densenet_server
+
+docker run -d -p 9003:8006 --cpus="2.0" --memory="4g" --name densenet_cpu2 densenet_server
+
+python scripts/client_sweep.py \
+  --url http://127.0.0.1:9001/infer \
+  --image sample.jpg \
+  --scales 0.1 0.2 0.4 0.6 0.8 1.0 1.25 1.5 \
+  --out data/densenet_gpu_latency.csv
+
+python scripts/client_sweep.py \
+  --url http://127.0.0.1:9002/infer \
+  --image sample.jpg \
+  --scales 0.1 0.2 0.4 0.6 0.8 1.0 1.25 1.5 \
+  --out data/densenet_cpu4_latency.csv
+
+python scripts/client_sweep.py \
+  --url http://127.0.0.1:9003/infer \
+  --image sample.jpg \
+  --scales 0.1 0.2 0.4 0.6 0.8 1.0 1.25 1.5 \
+  --out data/densenet_cpu2_latency.csv
