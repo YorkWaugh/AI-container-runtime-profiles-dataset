@@ -1,0 +1,12 @@
+docker build -t gcn_server -f Dockerfile_gcn .
+
+docker run --gpus all -d -p 9001:8006 --cpus="8.0" --memory="16g" --name gcn_gpu gcn_server
+
+docker run -d           -p 9002:8006 --cpus="4.0" --memory="8g"  --name gcn_cpu4 gcn_server
+
+docker run -d           -p 9003:8006 --cpus="2.0" --memory="4g"  --name gcn_cpu2 gcn_server
+
+python client_sweep_gcn.py \
+  --url http://127.0.0.1:9001/infer \
+  --node_scales 100 500 1000 2000 5000 8000 10000 \
+  --out data/gcn_gpu_latency.csv
