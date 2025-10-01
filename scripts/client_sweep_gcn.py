@@ -36,7 +36,7 @@ def main():
         w.writerow(["num_nodes", "num_edges", "features", "m_param", "seed", "latency_s", "status"])
         for n in args.node_scales:
             try:
-                graph_seed = args.seed + n
+                graph_seed = args.seed
                 x, edge_index = generate_graph_data(n, args.features, args.m_edges, seed=graph_seed)
                 num_edges = edge_index.size(1)
                 print(f"Testing with {n} nodes, {num_edges} edges (seed={graph_seed})...")
