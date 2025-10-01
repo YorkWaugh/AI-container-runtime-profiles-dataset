@@ -6,7 +6,7 @@ from torchvision import transforms
 import io
 import time
 
-model = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', weights='IMAGENET1K_V1')
+model = torch.hub.load('pytorch/vision:v0.10.0', 'densenet121', pretrained=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 model.eval() 

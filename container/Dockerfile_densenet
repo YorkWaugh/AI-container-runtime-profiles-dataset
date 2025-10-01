@@ -6,6 +6,10 @@ WORKDIR /app
 
 RUN pip install flask Pillow
 
+COPY preload_model.py .
+
+RUN python preload_model.py
+
 COPY densenet_server.py .
 
 EXPOSE 8006
