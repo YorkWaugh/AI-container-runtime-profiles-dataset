@@ -25,7 +25,7 @@ def main():
     ap.add_argument("--node_scales", nargs="+", type=int, required=True, help="A list of node counts to test.")
     ap.add_argument("--features", type=int, default=16, help="Dimension of node features.")
     ap.add_argument("--m_edges", type=int, default=5, help="Number of edges to attach from a new node to existing nodes in BA model.")
-    ap.add_argument("--seed", type=int, default=42, help="Global random seed for deterministic graph generation.")
+    ap.add_argument("--seed", type=int, default=37, help="Global random seed for deterministic graph generation.")
     ap.add_argument("--out", required=True, help="Output CSV file path.")
     args = ap.parse_args()
 

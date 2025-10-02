@@ -2,14 +2,16 @@ cd container
 docker build -t gcn_server -f Dockerfile_gcn .
 cd ..
 
-docker run -d -p 9001:8006 --cpus="1.0" --memory="2g" --name gcn_cpu1 gcn_server && sleep 10 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU1+Mem2.csv && docker stop gcn_cpu1 && docker rm gcn_cpu1
+docker run -d -p 9001:8006 --cpus="1.0" --memory="2g" --name gcn_cpu1 gcn_server && sleep 20 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU1+Mem2.csv && docker stop gcn_cpu1 && docker rm gcn_cpu1
 
-docker run -d -p 9001:8006 --cpus="2.0" --memory="4g" --name gcn_cpu2 gcn_server && sleep 10 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU2+Mem4.csv && docker stop gcn_cpu2 && docker rm gcn_cpu2
+docker run -d -p 9001:8006 --cpus="2.0" --memory="4g" --name gcn_cpu2 gcn_server && sleep 20 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU2+Mem4.csv && docker stop gcn_cpu2 && docker rm gcn_cpu2
 
-docker run -d -p 9001:8006 --cpus="3.0" --memory="6g" --name gcn_cpu3 gcn_server && sleep 10 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU3+Mem6.csv && docker stop gcn_cpu3 && docker rm gcn_cpu3
+docker run -d -p 9001:8006 --cpus="3.0" --memory="6g" --name gcn_cpu3 gcn_server && sleep 20 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU3+Mem6.csv && docker stop gcn_cpu3 && docker rm gcn_cpu3
 
-docker run -d -p 9001:8006 --cpus="4.0" --memory="8g" --name gcn_cpu4 gcn_server && sleep 10 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU4+Mem8.csv && docker stop gcn_cpu4 && docker rm gcn_cpu4
+docker run -d -p 9001:8006 --cpus="4.0" --memory="8g" --name gcn_cpu4 gcn_server && sleep 20 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU4+Mem8.csv && docker stop gcn_cpu4 && docker rm gcn_cpu4
 
-docker run -d -p 9001:8006 --cpus="6.0" --memory="12g" --name gcn_cpu6 gcn_server && sleep 10 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU6+Mem12.csv && docker stop gcn_cpu6 && docker rm gcn_cpu6
+docker run -d -p 9001:8006 --cpus="6.0" --memory="12g" --name gcn_cpu6 gcn_server && sleep 20 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/CPU6+Mem12.csv && docker stop gcn_cpu6 && docker rm gcn_cpu6
 
-docker run --gpus all -d -p 9001:8006 --cpus="6.0" --memory="12g" --name gcn_gpu gcn_server && sleep 10 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/GPU+CPU6+Mem12.csv && docker stop gcn_gpu && docker rm gcn_gpu
+docker run --gpus all -d -p 9001:8006 --cpus="6.0" --memory="12g" --name gcn_gpu gcn_server && sleep 20 && python scripts/client_sweep_gcn.py --url http://127.0.0.1:9001/infer --node_scales 100 500 1000 2000 5000 8000 10000 --out data/GPU+CPU6+Mem12.csv && docker stop gcn_gpu && docker rm gcn_gpu
+
+python scripts/generate_result.py
