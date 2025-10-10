@@ -3,29 +3,35 @@ import networkx as nx
 import random
 import numpy as np
 
-def generate_graph_data(num_nodes, num_features, m_edges, seed):
+def generate_graph_data(num_nodes, num_features, m_edges, seed, num_relations):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
 
     g = nx.barabasi_albert_graph(n=num_nodes, m=m_edges, seed=seed)
     edge_index = torch.tensor(list(g.edges), dtype=torch.long).t().contiguous()
+    edge_type = torch.randint(0, num_relations, (edge_index.size(1),), dtype=torch.long)
     x = torch.randn(num_nodes, num_features)
-    return x, edge_index
+    return x, edge_index, edge_type
 
-def send_request(url, x_list, edge_index_list):
+def send_request(url, x_list, edge_index_list, edge_type_list):
     t0 = time.perf_counter()
-    payload = {"x": x_list, "edge_index": edge_index_list}
+    payload = {
+        "x": x_list, 
+        "edge_index": edge_index_list,
+        "edge_type": edge_type_list  
+    }
     r = requests.post(url, json=payload, timeout=120)
     return time.perf_counter() - t0, r.status_code
 
 def main():
-    ap = argparse.ArgumentParser(description="Deterministic GCN Performance Evaluation Client")
-    ap.add_argument("--url", required=True, help="URL of the GCN server endpoint.")
+    ap = argparse.ArgumentParser(description="Deterministic RGCN Performance Evaluation Client")
+    ap.add_argument("--url", required=True, help="URL of the RGCN server endpoint.")
     ap.add_argument("--node_scales", nargs="+", type=int, required=True, help="A list of node counts to test.")
     ap.add_argument("--features", type=int, default=16, help="Dimension of node features.")
     ap.add_argument("--m_edges", type=int, default=5, help="Number of edges to attach from a new node to existing nodes in BA model.")
     ap.add_argument("--seed", type=int, default=37, help="Global random seed for deterministic graph generation.")
+    ap.add_argument("--num_relations", type=int, default=4, help="Number of relation types in the graph.")
     ap.add_argument("--out", required=True, help="Output CSV file path.")
     args = ap.parse_args()
 
@@ -33,19 +39,21 @@ def main():
 
     with open(args.out, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["num_nodes", "num_edges", "features", "m_param", "seed", "latency_s", "status"])
+        w.writerow(["num_nodes", "num_edges", "features", "m_param", "seed", "num_relations", "latency_s", "status"])
         for n in args.node_scales:
             try:
                 graph_seed = args.seed
-                x, edge_index = generate_graph_data(n, args.features, args.m_edges, seed=graph_seed)
+                x, edge_index, edge_type = generate_graph_data(
+                    n, args.features, args.m_edges, seed=graph_seed, num_relations=args.num_relations
+                )
                 num_edges = edge_index.size(1)
-                print(f"Testing with {n} nodes, {num_edges} edges (seed={graph_seed})...")
-                lat, code = send_request(args.url, x.tolist(), edge_index.tolist())
-                w.writerow([n, num_edges, args.features, args.m_edges, graph_seed, lat, code])
+                print(f"Testing with {n} nodes, {num_edges} edges, {args.num_relations} relations (seed={graph_seed})...")
+                lat, code = send_request(args.url, x.tolist(), edge_index.tolist(), edge_type.tolist())
+                w.writerow([n, num_edges, args.features, args.m_edges, graph_seed, args.num_relations, lat, code])
                 print(f"  -> Latency: {lat:.4f}s, Status: {code}")
             except Exception as e:
                 print(f"Error processing {n} nodes: {e}")
-                w.writerow([n, -1, args.features, args.m_edges, graph_seed, -1, "error"])
+                w.writerow([n, -1, args.features, args.m_edges, graph_seed, args.num_relations, -1, "error"])
 
     print(f"Sweep complete. Results saved to {args.out}")
 

@@ -1,0 +1,16 @@
+# Dockerfile_rgcn
+
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
+
+WORKDIR /app
+
+RUN pip install flask torch-geometric
+
+COPY preload_rgcn.py .
+RUN python preload_rgcn.py
+
+COPY rgcn_server.py .
+
+EXPOSE 8006
+
+CMD ["python", "rgcn_server.py"]

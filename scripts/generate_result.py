@@ -28,7 +28,7 @@ for config_name, filename in file_mapping.items():
     df = df[['latency_s']].rename(columns={'latency_s': config_name})
     combined_df = pd.concat([combined_df, df], axis=1)
 
-gcn_csv_path = os.path.join(result_directory, 'gcn.csv')
+gcn_csv_path = os.path.join(result_directory, 'rgcn.csv')
 combined_df.to_csv(gcn_csv_path, index=False)
 print(f"Successfully created the combined CSV file at: {gcn_csv_path}")
 print("--- Combined Data Head ---")
