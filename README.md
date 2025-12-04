@@ -50,7 +50,7 @@ This dataset is collected with reference to the **APIBench** dataset methodology
 
 ## Quick Start Tutorial: profiling FCN-50
 #### 1) Model Download (download_model.py)
-```bash
+```python
 import os
 import torch
 import torchvision
@@ -74,120 +74,138 @@ print(f"Model pre-download complete, storage path: {TORCH_HOME}")
 ```
 
 #### 2) Write inference service code（server.py）
-```bash
-import requests
-import numpy as np
-import cv2
+```python
 import torch
-from PIL import Image
-from torchvision import transforms
-import json
-import matplotlib.pyplot as plt
+import torchvision
+from flask import Flask, request, jsonify
+from codecarbon import EmissionsTracker
+import os
+from torchvision.models.segmentation import fcn_resnet50, FCN_ResNet50_Weights
+
+app = Flask(__name__)
 
 # ---------------------------
-# Load local image and convert to RGB
+# 1. Model Loading
 # ---------------------------
-image_path = "/home/lishenghai/桌面/tool_set/MiDas_Hybrid/flower.jpg"  # Change to your local image path
-input_image = Image.open(image_path).convert("RGB")
+# Set TORCH_HOME environment variable to tell torchvision where to find pre-downloaded weights.
+# This must be set before loading the model.
+os.environ['TORCH_HOME'] = '/opt/torch_hub'
 
-# ---------------------------
-# Define the preprocessing pipeline (based on official sample code)
-# ---------------------------
-# Official sample code uses the following preprocessing:
-#   transforms.ToTensor()
-#   transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-preprocess = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-])
+print("Loading model from installed torchvision...")
 
-# Apply preprocessing, convert image to tensor
-input_tensor = preprocess(input_image)
-# Add batch dimension, resulting shape (1, 3, H, W)
-input_batch = input_tensor.unsqueeze(0)
-
-# If a fixed size is needed, e.g., FCN-ResNet50 requires (1, 3, 224, 224), you can resize (resize is not forced here)
-# input_batch = torch.nn.functional.interpolate(input_batch, size=(224, 224), mode='bicubic', align_corners=False)
-
-# ---------------------------
-# Construct JSON Payload
-# ---------------------------
-# Convert the input tensor to a NumPy array, then to a list for JSON serialization
-payload = {"tensor": input_batch.cpu().numpy().tolist()}
-
-headers = {
-    "Content-Type": "application/json",
-    "Connection": "close",    # Force close connection, avoid issues with Keep-Alive
-    "Expect": ""              # Disable Expect: 100-continue
-}
-# Explicitly disable proxies: pass an empty proxy dictionary
-proxies = {
-    "http": "",
-    "https": ""
-}
-
-# ---------------------------
-# Define API service address (modify based on your deployment)
-# ---------------------------
-api_url = "http://localhost:8006/predict"
-
-# ---------------------------
-# Send POST request and process the output
-# ---------------------------
+# Load model using the official library.
+# weights='DEFAULT' loads the latest pretrained weights (fcn_resnet50_coco-*.pth).
+# For older PyTorch versions, use pretrained=True.
 try:
-    response = requests.post(api_url, json=payload, headers=headers, proxies=proxies, timeout=60)
-    print("Status Code:", response.status_code)
-    
-    if response.status_code == 200:
-        result = response.json()
-        # Assume the server returns the field "segmentation", i.e., the class index map for each pixel
-        segmentation_map = np.array(result["segmentation"])
-        print("Prediction successful! Shape of segmentation result:", segmentation_map.shape)
-        
+    # New torchvision syntax (0.13+)
+    weights = FCN_ResNet50_Weights.DEFAULT
+    model = fcn_resnet50(weights=weights)
+except ImportError:
+    # Legacy compatibility
+    print("Using legacy loading method...")
+    model = fcn_resnet50(pretrained=True)
+
+model.eval()
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model.to(device)
+print(f"Model loaded on {device}")
+
+# ---------------------------
+# 2. Initialize CodeCarbon Tracker
+# ---------------------------
+tracker = EmissionsTracker(
+    output_dir="/opt/logs", 
+    output_file="emissions.csv", 
+    on_csv_write="append",
+    measure_power_secs=0.1,
+    save_to_file=True,
+    log_level="error"
+)
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.json
+        if "tensor" not in data:
+            return jsonify({"error": "No tensor provided"}), 400
+            
+        input_tensor = torch.tensor(data['tensor'])
+        if input_tensor.dim() == 3:
+            input_tensor = input_tensor.unsqueeze(0)
+        input_tensor = input_tensor.to(device)
+
         # ---------------------------
-        # Process output as per official example: generate pseudo-color image
+        # 3. Start Energy Tracking
         # ---------------------------
-        # Construct palette: Assume the model segments into 21 classes
-        palette = torch.tensor([2**25 - 1, 2**15 - 1, 2**21 - 1])
-        colors = torch.as_tensor([i for i in range(21)])[:, None] * palette
-        colors = (colors % 255).numpy().astype("uint8")
+        tracker.start()
         
-        # Convert segmentation result to PIL Image, Note: segmentation_map should be a 2D array
-        seg_img = Image.fromarray(segmentation_map.astype(np.uint8))
-        # Resize to original image size for display
-        seg_img = seg_img.resize(input_image.size)
-        # Apply palette
-        seg_img.putpalette(colors.flatten().tolist())
+        with torch.no_grad():
+            output = model(input_tensor)
+            
+        # ---------------------------
+        # 4. Stop Tracking
+        # ---------------------------
+        tracker.stop()
         
-        # Use matplotlib to display pseudo-color segmentation result
-        plt.figure(figsize=(8, 6))
-        plt.imshow(seg_img)
-        plt.title("Segmentation Result")
-        plt.axis("off")
-        plt.show()
-    else:
-        print("Request failed, response content:", response.text)
-except Exception as e:
-    print("Request exception:", str(e))
+        # Calculate energy consumption in Joules
+        emissions_data = tracker.final_emissions_data
+        kwh_to_joules = 3.6e6
+        
+        cpu_energy = emissions_data.cpu_energy * kwh_to_joules
+        gpu_energy = emissions_data.gpu_energy * kwh_to_joules
+        ram_energy = emissions_data.ram_energy * kwh_to_joules
+        total_energy = emissions_data.energy_consumed * kwh_to_joules
+
+        # Convert output to list
+        if isinstance(output, dict):
+            res_numpy = output['out'].cpu().numpy().tolist()
+        else:
+            res_numpy = output.cpu().numpy().tolist()
+
+        return jsonify({
+            "status": "success",
+            "segmentation": res_numpy, 
+            "energy_metrics": {
+                "cpu_joules": cpu_energy,
+                "gpu_joules": gpu_energy,
+                "ram_joules": ram_energy,
+                "total_joules": total_energy
+            }
+        })
+
+    except Exception as e:
+        if tracker._active:
+            tracker.stop()
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8006)
 ```
 #### 3) Compose the Dockerfile
-```bash
-FROM python:3.10-slim
+```dockerfile
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y git && apt-get clean
-
-RUN pip install --default-timeout=600 torch torchvision pytorchvideo flask opencv-python-headless flask -i https://pypi.tuna.tsinghua.edu.cn/simple
+# Install Python dependencies
+# Note: torch and torchvision are already included in the base image, so they are not listed here.
+RUN pip install --default-timeout=600 \
+    pytorchvideo \
+    flask opencv-python-headless \
+    codecarbon \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ENV TORCH_HOME=/opt/torch_hub
 
 WORKDIR /opt
 
+# Copy scripts and pre-downloaded model data
 COPY download_model.py server.py /opt/
-
 COPY data/torch_hub/ /opt/torch_hub/
+
+# Create directory for logs
+RUN mkdir -p /opt/logs
 
 EXPOSE 8006
 
@@ -196,16 +214,51 @@ CMD ["python", "server.py"]
 
 #### 4) Deploy containers with specified resource budgets
 ```bash
-sudo docker run --gpus all -d -p 9001:8006 --cpus="8.0" --memory="16g" --name fcn_resnet50_gpu torchhub_fcn_resnet50_server
-sudo docker run -d -p 9002:8006 --cpus="6.0" --memory="12g" --name fcn50_cpu6 torchhub_fcn_resnet50_server
-sudo docker run -d -p 9003:8006 --cpus="4.0" --memory="8g" --name fcn50_cpu4 torchhub_fcn_resnet50_server
-sudo docker run -d -p 9004:8006 --cpus="3.0" --memory="6g" --name fcn50_cpu3 torchhub_fcn_resnet50_server
-sudo docker run -d -p 9005:8006 --cpus="2.0" --memory="4g" --name fcn50_cpu2 torchhub_fcn_resnet50_server
-sudo docker run -d -p 9006:8006 --cpus="1.0" --memory="2g" --name fcn50_cpu1 torchhub_fcn_resnet50_server
+sudo docker run --gpus all \
+  -d -p 9001:8006 \
+  --cpus="8.0" --memory="16g" \
+  -v /sys/class/powercap:/sys/class/powercap:ro \
+  --name fcn_resnet50_gpu \
+  torchhub_fcn_resnet50_server
+
+sudo docker run \
+  -d -p 9002:8006 \
+  --cpus="6.0" --memory="12g" \
+  -v /sys/class/powercap:/sys/class/powercap:ro \
+  --name fcn50_cpu6 \
+  torchhub_fcn_resnet50_server
+
+sudo docker run \
+  -d -p 9003:8006 \
+  --cpus="4.0" --memory="8g" \
+  -v /sys/class/powercap:/sys/class/powercap:ro \
+  --name fcn50_cpu4 \
+  torchhub_fcn_resnet50_server
+
+sudo docker run \
+  -d -p 9004:8006 \
+  --cpus="3.0" --memory="6g" \
+  -v /sys/class/powercap:/sys/class/powercap:ro \
+  --name fcn50_cpu3 \
+  torchhub_fcn_resnet50_server
+
+sudo docker run \
+  -d -p 9005:8006 \
+  --cpus="2.0" --memory="4g" \
+  -v /sys/class/powercap:/sys/class/powercap:ro \
+  --name fcn50_cpu2 \
+  torchhub_fcn_resnet50_server
+
+sudo docker run \
+  -d -p 9006:8006 \
+  --cpus="1.0" --memory="2g" \
+  -v /sys/class/powercap:/sys/class/powercap:ro \
+  --name fcn50_cpu1 \
+  torchhub_fcn_resnet50_server
 ```
 
 #### 5）Metrics collection code (setting different input images can collect runtime metrics given different input sizes)
-```bash
+```python
 import requests
 import numpy as np
 import cv2
@@ -213,98 +266,105 @@ import time
 import json
 import csv
 from PIL import Image
-import torch
 from torchvision import transforms
-import matplotlib.pyplot as plt
 
-# ---------------------------
-# Load local image and convert to RGB
-# ---------------------------
 def load_local_image(image_path):
     img = cv2.imread(image_path)
     if img is None:
-        raise ValueError(f"❌ Failed to read image, please check the path: {image_path}")
+        raise ValueError(f"Failed to read image, please check the path: {image_path}")
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
-# ---------------------------
-# Define the preprocessing pipeline (based on official sample code)
-# ---------------------------
-# Use torchvision transforms to convert the image to a tensor and normalize it
 preprocess = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
                          std=[0.229, 0.224, 0.225])
 ])
 
-# ---------------------------
-# Test function: Apply preprocessing transform to the given image and call the API to test inference time
-# ---------------------------
 def test_inference(api_url, img, orig_size):
-    # Convert numpy array to PIL Image
     img_pil = Image.fromarray(img)
-    # Apply the preprocessing pipeline to get the tensor
     input_tensor = preprocess(img_pil)
     if input_tensor.dim() == 3:
         input_tensor = input_tensor.unsqueeze(0)
     
     payload = {
         "tensor": input_tensor.cpu().numpy().tolist(),
-        "orig_size": orig_size  # Original image size [height, width]
+        "orig_size": orig_size
     }
     
     start = time.perf_counter()
-    response = requests.post(api_url, json=payload, timeout=60)
-    elapsed = time.perf_counter() - start
-    return response, elapsed
+    try:
+        response = requests.post(api_url, json=payload, timeout=60)
+        elapsed = time.perf_counter() - start
+        return response, elapsed
+    except Exception as e:
+        print(f"Request Error: {e}")
+        return None, time.perf_counter() - start
 
-# ---------------------------
-# Main function
-# ---------------------------
 def main():
-    # Local image path (please modify according to your setup)
-    image_path = "/home/lishenghai/桌面/tool_set/MiDas_Hybrid/flower.jpg"
-    original_img = load_local_image(image_path)
-    
-    # Original image size [height, width]
+    # TODO: Please modify this to your local image path
+    image_path = "test.jpg" 
+    try:
+        original_img = load_local_image(image_path)
+    except ValueError as e:
+        print(e)
+        return
+
     orig_size = [original_img.shape[0], original_img.shape[1]]
-    
-    # API service address (please modify based on your deployment)
-    api_url = "http://localhost:8006/predict"
+    # Ensure port matches the docker run mapping (e.g., 9001 -> 8006)
+    api_url = "http://localhost:9001/predict" 
     
     # ---------------------------
-    # Warm-up step: Use the original image for one warm-up call
+    # Warm-up
     # ---------------------------
-    print("Warming up the container...")
-    _, warmup_time = test_inference(api_url, original_img, orig_size)
-    print(f"Warm-up call took: {warmup_time:.4f} seconds\n")
+    print("Warming up...")
+    resp, warmup_time = test_inference(api_url, original_img, orig_size)
+    if resp and resp.status_code == 200:
+        print(f"Warm-up call took: {warmup_time:.4f} seconds")
+    else:
+        print("Warm-up failed.")
     
-    # Define 20 scaling factors, from 0.1 to 2.0
     scales = np.linspace(0.1, 2.0, 20)
     results = []
     
-    print("Starting test on the impact of different scaled image sizes on total inference time...")
+    print("\nStarting energy and latency profiling...")
     for s in scales:
         new_width = int(original_img.shape[1] * s)
         new_height = int(original_img.shape[0] * s)
+        
+        # Avoid zero dimensions
+        if new_width < 1 or new_height < 1: continue
+
         img_scaled = cv2.resize(original_img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-        # For the server, orig_size remains the original image size
+        
         response, elapsed = test_inference(api_url, img_scaled, orig_size)
-        print(f"Scale factor {s:.2f}, resized to {new_height}x{new_width}, request time {elapsed:.4f} seconds")
+        
+        cpu_j = 0.0
+        gpu_j = 0.0
+        
+        if response and response.status_code == 200:
+            data = response.json()
+            # Get energy metrics from server response
+            energy_metrics = data.get("energy_metrics", {})
+            cpu_j = energy_metrics.get("cpu_joules", 0.0)
+            gpu_j = energy_metrics.get("gpu_joules", 0.0)
+            
+            print(f"Scale {s:.2f} | Time: {elapsed:.4f}s | CPU: {cpu_j:.4f}J | GPU: {gpu_j:.4f}J")
+        else:
+            print(f"Scale {s:.2f} | Failed Status: {response.status_code if response else 'Error'}")
+
         results.append({
             "scale": s,
             "width": new_width,
             "height": new_height,
-            "time": elapsed
+            "time": elapsed,
+            "cpu_joules": cpu_j,
+            "gpu_joules": gpu_j
         })
     
-    print("\nTest Results:")
-    for res in results:
-        print(res)
-    
-    # Save test results to CSV file (keep four decimal places)
-    with open("inference_time_results.csv", "w", newline="") as csvfile:
-        fieldnames = ["scale", "width", "height", "time"]
+    # Save results including Energy metrics
+    with open("inference_profile.csv", "w", newline="") as csvfile:
+        fieldnames = ["scale", "width", "height", "time", "cpu_joules", "gpu_joules"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for res in results:
@@ -312,23 +372,11 @@ def main():
                 "scale": f"{res['scale']:.4f}",
                 "width": res["width"],
                 "height": res["height"],
-                "time": f"{res['time']:.4f}"
+                "time": f"{res['time']:.4f}",
+                "cpu_joules": f"{res['cpu_joules']:.6f}",
+                "gpu_joules": f"{res['gpu_joules']:.6f}"
             })
-    print("Test results saved to inference_time_results.csv")
-    
-    # Plot the line chart
-    scales_plot = [res["scale"] for res in results]
-    times_plot = [res["time"] for res in results]
-    
-    plt.figure(figsize=(8, 5))
-    plt.plot(scales_plot, times_plot, '-o', label='Inference Time')
-    plt.xlabel("Scale Factor")
-    plt.ylabel("Time (seconds)")
-    plt.title("Inference Time vs Scale Factor")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    print("\nResults saved to inference_profile.csv")
 
 if __name__ == '__main__':
     main()
