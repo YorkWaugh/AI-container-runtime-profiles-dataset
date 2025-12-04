@@ -1,55 +1,68 @@
 # AI Model Container Runtime Profiling (AC-Prof) Dataset
+>
 > Reproducible measurements of the invocation latency of AI Services Docker Containers, including cold starts and runtime behavior, under various resource specifications and input scales.
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#continuous-integration) [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](#requirements) [![Issues](https://img.shields.io/github/issues/<ORG_OR_USER>/<REPO>.svg)](https://github.com/<ORG_OR_USER>/<REPO>/issues)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](#requirements) [![Issues](https://img.shields.io/github/issues/wingter562/AI-container-runtime-profiles-dataset.svg)](https://github.com/wingter562/AI-container-runtime-profiles-dataset/issues)
 
 ## Overview
-This repository provides 
+
+This repository provides
+
 1. A dataset of latency measurements for popular AI service containers (with deep models at the core)
-2. Scripts for systematically profiling containerized ML workloads. 
+2. Scripts for systematically profiling containerized ML workloads.
 We focus on two critical aspects for scheduling and resource management: container cold start and nonlinear runtime behavior under varid CPU, GPU, and memory specs as well as input sizes. The dataset is designed to support reproducible performance modeling and quantitative evaluation of scheduling and resource allocation strategies.
 
 ## What’s Included
+
 - **Static metrics**: container image and model weights size (download volume).
 - **Dynamic metrics**: end-to-end runtime measured under a specified matrix of CPU/GPU/memory limits and input scales.
 - **Optional metrics**: peak CPU usage, peak GPU utilization or VRAM usage.
 - **Scripts**: Docker build/run recipes with resource caps, client scripts for warm-up and request timing, CSV logging, and plotting utilities.
 
 ## Measurement Environment
+
 - OS: Ubuntu 24.04.6 LTS  
 - Container runtime: Docker 27.5.1  
 - Drivers/Libraries: CUDA 12.1, cuDNN 9.1  
 - Language/Framework: Python 3.12, PyTorch 2.5.1+cu121
 
 ## Data Sources
+
 This dataset is collected with reference to the **APIBench** dataset methodology. External model APIs are sourced from three popular ML model repositories:
-- **TorchHub**: https://pytorch.org/hub/
-- **TensorFlow Hub**: https://www.tensorflow.org/hub
-- **HuggingFace Models**: https://huggingface.co/models
+
+- **TorchHub**: <https://pytorch.org/hub/>
+- **TensorFlow Hub**: <https://www.tensorflow.org/hub>
+- **HuggingFace Models**: <https://huggingface.co/models>
 
 ## Resource and Input Matrix
+
 - CPU cores: `{1, 2, 4, 8}`  
 - Memory limits: `{2 GB, 4 GB, 8 GB, 16 GB}`  
 - GPU count: `{0, 1}`  
 - Input scaling: task-specific multi-level inputs (e.g., image resolution or text length grid)
 
 ## Data Example
+
 ![runtime profile example](docs/container_runtime_example.png)
 
-# Guideline for Customized Profiling
+## Guideline for Customized Profiling
 
-## Requirements
+### Requirements
+
 - Python 3.10 or newer
 - Git and a recent C or C++ toolchain if native dependencies are required
 - Optional CUDA 12.x for GPU features
 
-## What to Record
+### What to Record
+
 - Startup metrics: image download size and time, container initialization time,.
 - Runtime metrics: per-request end-to-end latency under each CPU/MEM/GPU/input configuration.
 - Optional peaks: peak CPU usage, peak GPU utilization/VRAM.
 
-## Quick Start Tutorial: profiling FCN-50
+### Quick Start Tutorial: profiling FCN-50
+
 #### 1) Model Download (download_model.py)
+
 ```python
 import os
 import torch
@@ -74,6 +87,7 @@ print(f"Model pre-download complete, storage path: {TORCH_HOME}")
 ```
 
 #### 2) Write inference service code（server.py）
+
 ```python
 import torch
 import torchvision
@@ -182,7 +196,9 @@ def predict():
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8006)
 ```
+
 #### 3) Compose the Dockerfile
+
 ```dockerfile
 FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
 
@@ -213,6 +229,7 @@ CMD ["python", "server.py"]
 ```
 
 #### 4) Deploy containers with specified resource budgets
+
 ```bash
 sudo docker run --gpus all \
   -d -p 9001:8006 \
@@ -258,6 +275,7 @@ sudo docker run \
 ```
 
 #### 5）Metrics collection code (setting different input images can collect runtime metrics given different input sizes)
+
 ```python
 import requests
 import numpy as np
@@ -382,20 +400,24 @@ if __name__ == '__main__':
     main()
 ```
 
-## Modeling Guidance
+### Modeling Guidance
+
 - After collecting measurements for a container, fit a simple parametric or piecewise model (e.g., least squares) for latency as a function of resources and input size, and report goodness of fit and residuals. Keep train/test splits separate for each container–task pair.
 
-
 ## Contribution
+
 New contributors are welcome. Please open an issue to discuss your idea before submitting a pull request. Follow the code style and ensure tests pass. See `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` if present.
 
 ## License
-This project is released under the MIT license. See [LICENSE](LICENSE) for details.
+
+This project is released under the Apache-2.0 license. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgements
-This dataset is part of the DOR project (https://github.com/wingter562/DISTINT_open_data) by Dr. Wentai Wu, Jinan University, with primary contribution by Dr. Shenghai Li, South China University of Technology.
+
+This dataset is part of the DOR project (<https://github.com/wingter562/DISTINT_open_data>) by Dr. Wentai Wu, Jinan University, with primary contribution by Dr. Shenghai Li, South China University of Technology.
 
 **List of contributors:**
+
 - Wentai Wu, JNU
 - Shenghai Li, SCUT
 - Kaizhe Song, JNU
