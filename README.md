@@ -1,6 +1,6 @@
-# AC-Prof: AI Model Container Runtime Profiling Dataset & Framework
+# AC-Prof: AI Model Inference Container Run-time Profiling Dataset & Framework, featuring scaled resource specifications.
 
-> **A high-fidelity dataset and reproducible profiling framework for characterizing the comprehensive runtime metrics of containerized AI microservices under constrained resource specifications.**
+> **A high-fidelity dataset and reproducible profiling framework for characterizing the run-time behavior of containerized AI microservices under constrained resource specifications.**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](#requirements) 
 
@@ -9,10 +9,10 @@
 
 ## 📖 Overview
 
-**AC-Prof (AI Container Profiler)** addresses the critical lack of fine-grained performance data for AI workloads in edge and serverless computing environments. Unlike general-purpose monitoring tools, AC-Prof is specifically architected for Deep Learning (DL) inference services.
+**AC-Prof (AI model Inference Container Profiler)** addresses the lack of behavior data that reflect how an inference container, of varied AI models and input scale, respond to different budgets of resources (e.g., GPU, CPUs) allocated to the runtime. Unlike general-purpose monitoring tools, AC-Prof is specifically architected for Deep Learning (DL) inference services. Unlike MLPerf, AC-Prof focuses on the sensitivity of performance to resources and covers more metrics, e.g., power/energy, apart from inference delay.
 
 It provides **two core assets** for the research community:
-1.  **The Dataset**: A comprehensive collection of performance metrics covering cold-starts and runtime behaviors under rigorous resource limits (CPU/GPU/Memory) and input variations.
+1.  **The Dataset**: A comprehensive collection of performance metrics covering cold-starts and runtime behaviors under strict resource limits (CPU/GPU/Memory) and input variations.
 2.  **The Framework**: A decoupled, side-channel profiling tool that captures **Network Latency** (via packet sniffing) and **GPU Energy** (via NVML integration) with **zero code intrusion**.
 
 ## 🌟 Key Features
@@ -90,8 +90,8 @@ This dataset is part of the DOR project (https://github.com/wingter562/DISTINT_o
 **List of contributors:**
 - Wentai Wu, JNU
 - Shenghai Li, SCUT
-- Kaizhe Song, JNU
 - Qinan Wu, JNU
+- Kaizhe Song, JNU
 - Yukai Wang, JNU
 
 Project contact: wentaiwu[at]jnu[dot]edu[dot]cn | lishenghai2022[at]foxmail[dot]com
