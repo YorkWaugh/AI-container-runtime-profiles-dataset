@@ -17,9 +17,9 @@ It provides **two core assets** for the research community:
 
 ## 🌟 Key Features
 
-* **🕵️ Zero-Intrusion Architecture**: Utilizes **Side-Channel Monitoring** (Network Sniffers & GPU Polling) to profile containers without modifying a single line of the model server code.
-* **🧩 Modularity & Extensibility**: Features a plugin-based monitor architecture. Switch effortlessly between `LatencyProxy` (Application-level) and `NetworkSniffer` (Network-level) modes.
-* **📦 Reproducible Environments**: Fully containerized benchmarks based on standard Docker runtimes and PyTorch Hub models, ensuring consistent results across different hardware.
+* **🕵️ Zero-Intrusion Architecture**: Profiles AI containers as black-boxes by monitoring external application-level signals and hardware states (GPU Polling) without modifying any model-server source code.
+* **🧩 Modularity & Extensibility**: Features a decoupled monitor architecture. Easily extend profiling capabilities with custom probes (e.g., CPU utilization, Memory footprint) without altering the core experiment orchestrator.
+* **📦 Reproducible Environments**: Leveraging standard Docker runtimes and PyTorch Hub models to ensure a deterministic execution environment. This framework enables researchers to reproduce the profiling workflow and comparative analysis across different hardware setups.
 
 ## 🏗️ System Architecture
 
