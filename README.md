@@ -1,6 +1,6 @@
-# AC-Prof: AI Model Inference Container Run-time Profiling Dataset & Framework, featuring scaled resource specifications.
+# AC-Prof: Automated inference-serving containers (containerized tools) run-time profiling dataset & framework, featuring scaled resource specifications.
 
-> **A high-fidelity dataset and reproducible profiling framework for characterizing the run-time behavior of containerized AI microservices under constrained resource specifications.**
+> **A high-fidelity dataset along with reproducible profiling framework for characterizing the run-time behavior of containerized AI tools under constrained resource specifications.**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](#requirements) 
 
@@ -9,7 +9,7 @@
 
 ## 📖 Overview
 
-**AC-Prof (AI model Inference Container Profiler)** addresses the lack of behavior data that reflect how an inference container, of varied AI models and input scale, respond to different budgets of resources (e.g., GPU, CPUs) allocated to the runtime. Unlike general-purpose monitoring tools, AC-Prof is specifically architected for Deep Learning (DL) inference services. Unlike MLPerf, AC-Prof focuses on the sensitivity of performance to resources and covers more metrics, e.g., power/energy, apart from inference delay.
+**AC-Prof (Automated inference-serving Containers/Containerized tools run-time Profiling)** addresses the lack of behavior data that reflect how an inference container, of varied AI models and input scale, respond to different budgets of resources (e.g., GPU, CPUs) allocated to the runtime. Unlike general-purpose monitoring tools, AC-Prof is specifically architected for Deep Learning (DL) inference services. Unlike MLPerf, AC-Prof focuses on the sensitivity of performance to resources and covers more metrics, e.g., power/energy, apart from inference delay.
 
 It provides **two core assets** for the research community:
 1.  **The Dataset**: A comprehensive collection of performance metrics covering cold-starts and runtime behaviors under strict resource limits (CPU/GPU/Memory) and input variations.
